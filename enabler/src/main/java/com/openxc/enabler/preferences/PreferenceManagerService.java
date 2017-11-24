@@ -22,7 +22,7 @@ public class PreferenceManagerService extends Service {
     private IBinder mBinder = new PreferenceBinder();
     private VehicleManager mVehicleManager;
     private BluetoothPreferenceManager mBluetoothPreferenceManager;
-
+    private BLEPreferenceManager mBlePreferenceManager;
     private List<VehiclePreferenceManager> mPreferenceManagers =
             new ArrayList<VehiclePreferenceManager>();
 
@@ -43,6 +43,10 @@ public class PreferenceManagerService extends Service {
         mPreferenceManagers = new ArrayList<VehiclePreferenceManager>();
         mBluetoothPreferenceManager = new BluetoothPreferenceManager(this);
         mPreferenceManagers.add(mBluetoothPreferenceManager);
+
+        mBlePreferenceManager = new BLEPreferenceManager(this);
+        mPreferenceManagers.add(mBlePreferenceManager);
+
         mPreferenceManagers.add(new FileRecordingPreferenceManager(this));
         mPreferenceManagers.add(new GpsOverwritePreferenceManager(this));
         mPreferenceManagers.add(new NativeGpsPreferenceManager(this));

@@ -14,6 +14,7 @@ import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
@@ -23,17 +24,19 @@ import android.util.Log;
 
 import com.openxc.VehicleManager;
 import com.openxc.interfaces.bluetooth.BluetoothVehicleInterface;
+import com.openxc.util.SupportSettingsUtils;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-
-/**
- * Created by Srilaxmi on 8/30/17.
- */
+import java.util.Set;
 
 public class BLEHelper {
 
     private final static String TAG = BLEHelper.class.getSimpleName();
+    public static final String KNOWN_BLE_DEVICE_PREFERENCES = "known_ble_devices";
+    public static final String KNOWN_BLE_DEVICE_PREF_KEY = "known_ble_devices";
+    public static final String LAST_CONNECTED_BLE_DEVICE_PREF_KEY = "last_connected_ble_device";
     private BluetoothAdapter mBluetoothAdapter;
     private static final long SCAN_PERIOD = 10000;
     private BluetoothLeScanner mLEScanner = null;
@@ -56,13 +59,17 @@ public class BLEHelper {
     private BluetoothDevice mBluetoothDevice;
     private BluetoothGatt mBluetoothGatt;
     private BluetoothGattCallback mGattCallback;
+    private Set<BluetoothDevice> discoveredDevices = new HashSet<>();
 
     public BLEHelper(Context context) throws BLEException {
 
         mContext = context;
+        if(Looper.myLooper() == null) {
+            Looper.prepare();
+        }
         mHandler = new Handler();
 
-        if(initialize() == null) {
+        if(getDefaultAdapter() == null) {
             String message = "This device most likely does not have " +
                     "a Bluetooth adapter";
             Log.w(TAG, message);
@@ -82,7 +89,7 @@ public class BLEHelper {
      * @return Return reference to Bluetooth Adapter if the initialization is successful, null if not
      */
 
-    public BluetoothAdapter initialize() {
+    public BluetoothAdapter getDefaultAdapter() {
 
         if(mBluetoothAdapter == null) {
 
@@ -138,16 +145,20 @@ public class BLEHelper {
      *
      * @param enable
      */
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     public void scanLeDevice(final boolean enable) {
         if(mBluetoothAdapter == null) {
             Log.i(TAG, "Bluetooth Adapter is null");
             return;
         }
+        initializeScanner();
+
         createCallBackForApi21();
         createCallBackForApi18();
         if (enable) {
             // Stops scanning after a pre-defined scan period.
             mHandler.postDelayed(new Runnable() {
+                @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
                 @Override
                 public void run() {
                     sendScanCompleteBroadcast();
@@ -155,14 +166,12 @@ public class BLEHelper {
                         mBluetoothAdapter.stopLeScan(mLeScanCallback);
                     } else {
                         mLEScanner.stopScan(mScanCallback);
-
                     }
                 }
             }, SCAN_PERIOD);
             if (Build.VERSION.SDK_INT < 21) {
                 mBluetoothAdapter.startLeScan(mLeScanCallback);
             } else {
-                initializeScanner();
                 if(mLEScanner != null) {
                     mLEScanner.startScan(filters, settings, mScanCallback);
                 }
@@ -194,9 +203,11 @@ public class BLEHelper {
                     Log.i("callbackType", String.valueOf(callbackType));
                     Log.i("result", result.toString());
 
-                    if (result.getScanRecord().getDeviceName().toLowerCase().contains("OpenXC".toLowerCase())) {
+                    if (result.getScanRecord().getDeviceName()!=null && result.getScanRecord().getDeviceName().toLowerCase().contains("OpenXC".toLowerCase())) {
                         mBluetoothDevice = result.getDevice();
+                        addToBLEDeviceList(mBluetoothDevice);
                     }
+
 
                     //***Add device to list of devices
 
@@ -218,6 +229,11 @@ public class BLEHelper {
         }
     }
 
+    private void addToBLEDeviceList(BluetoothDevice mBluetoothDevice) {
+        Log.d(TAG,"Adding to stored BLE Device " + mBluetoothDevice.getAddress());
+        discoveredDevices.add(mBluetoothDevice);
+    }
+
     @TargetApi(18)
     private void createCallBackForApi18() {
 
@@ -232,6 +248,7 @@ public class BLEHelper {
 
                             if (device.getName().toLowerCase().contains("OpenXC".toLowerCase())) {
                                 mBluetoothDevice = device;
+                                addToBLEDeviceList(mBluetoothDevice);
                             }
 
                             //***Add device to list of devices
@@ -253,6 +270,7 @@ public class BLEHelper {
      */
     @TargetApi(18)
     public boolean connect(String address) throws BLEException {
+        Log.d(TAG,"ALPHA Trying to connection");
         if(Build.VERSION.SDK_INT < 18){
             Log.i(TAG, "BLE not supported on API Version < 18");
             throw new BLEException("BLE not supported on API Version < 18");
@@ -263,13 +281,8 @@ public class BLEHelper {
             throw new BLEException("BluetoothAdapter not initialized");
         }
 
-        if (address == null){
+        if (address == null && mBluetoothDeviceAddress!=null){
             address = mBluetoothDeviceAddress;
-        }
-
-        if (address ==  null){
-            Log.w(TAG, "Unspecified device address.");
-            throw new BLEException("Unspecified device address.");
         }
 
         // Previously connected device.  Try to reconnect.
@@ -285,22 +298,23 @@ public class BLEHelper {
         }
 
         final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+
         if (device == null) {
             Log.w(TAG, "Device not found.  Unable to connect.");
             throw new BLEException("Device not found.  Unable to connect.");
-            return false;
         }
         // We want to directly connect to the device, so we are setting the autoConnect
         // parameter to false.
         if (mGattCallback == null){
             Log.i(TAG, "GattCallback not instantiated");
             throw new BLEException("GattCallback not instantiated");
-            return false;
         }
-        mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
+        Log.d(TAG,"Alpha Trying to connect!!!");
+        mBluetoothGatt = device.connectGatt(mContext, false, mGattCallback);
         Log.d(TAG, "Trying to create a new connection.");
         mBluetoothDeviceAddress = address;//*** should this be set after connected?
         mConnectionState = STATE_CONNECTING;
+//        storeLastConnectedDevice(mBluetoothDevice);
         return true;
     }
 
@@ -341,7 +355,7 @@ public class BLEHelper {
     }
 
     public void stop(){
-
+       // scanLeDevice(false);
     }
 
     public void setGattCallback(BluetoothGattCallback bluetoothGattCallback){
@@ -365,11 +379,58 @@ public class BLEHelper {
     }
 
     public void storeLastConnectedDevice(BluetoothDevice device) {
-        /***/
+        SharedPreferences.Editor editor =
+                mContext.getSharedPreferences(
+                        KNOWN_BLE_DEVICE_PREFERENCES,
+                        Context.MODE_MULTI_PROCESS).edit();
+        editor.putString(LAST_CONNECTED_BLE_DEVICE_PREF_KEY,
+                device.getAddress());
+        editor.apply();
+        Log.d(TAG, "Stored last connected ble device: " + device.getAddress());
     }
 
     public BluetoothDevice getLastConnectedDevice() {
-        /***/
+        SharedPreferences preferences =
+                mContext.getSharedPreferences(KNOWN_BLE_DEVICE_PREFERENCES,
+                        Context.MODE_MULTI_PROCESS);
+        String lastConnectedDeviceAddress = preferences.getString(
+                LAST_CONNECTED_BLE_DEVICE_PREF_KEY, null);
+        BluetoothDevice lastConnectedDevice = null;
+        if(lastConnectedDeviceAddress != null) {
+            lastConnectedDevice = getDefaultAdapter().getRemoteDevice(lastConnectedDeviceAddress);
+        }
+        return lastConnectedDevice;
     }
 
+    public Set<BluetoothDevice> getCandidateDevices() {
+        Set<BluetoothDevice> candidates = discoveredDevices;
+
+        SharedPreferences preferences =
+                mContext.getSharedPreferences(KNOWN_BLE_DEVICE_PREFERENCES,
+                        Context.MODE_MULTI_PROCESS);
+        Set<String> detectedDevices = SupportSettingsUtils.getStringSet(
+                preferences, KNOWN_BLE_DEVICE_PREF_KEY,
+                new HashSet<String>());
+        for(String address : detectedDevices) {
+            if(BluetoothAdapter.checkBluetoothAddress(address)) {
+                candidates.add(getDefaultAdapter().getRemoteDevice(address));
+            }
+        }
+
+        for(BluetoothDevice candidate : candidates) {
+            Log.d(TAG, "Found previously discovered or paired OpenXC BLE VI "
+                    + candidate.getAddress());
+        }
+        return candidates;
+    }
+
+    public void startDiscovery() {
+        if(getDefaultAdapter() != null) {
+            if(getDefaultAdapter().isDiscovering()) {
+                getDefaultAdapter().cancelDiscovery();
+            }
+            Log.i(TAG, "Starting BLE discovery");
+            getDefaultAdapter().startDiscovery();
+        }
+    }
 }

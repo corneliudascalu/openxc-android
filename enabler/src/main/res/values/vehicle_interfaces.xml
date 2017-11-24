@@ -5,6 +5,8 @@
 
     <string name="bluetooth_interface_option">Bluetooth</string>
     <string name="bluetooth_interface_option_value">bluetooth</string>
+    <string name="ble_interface_option">BLE</string>
+    <string name="ble_interface_option_value">ble</string>
     <string name="usb_interface_option">USB</string>
     <string name="usb_interface_option_value">usb</string>
     <string name="network_interface_option">Network</string>

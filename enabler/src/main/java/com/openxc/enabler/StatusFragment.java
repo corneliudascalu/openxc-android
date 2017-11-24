@@ -6,12 +6,14 @@ import java.util.TimerTask;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,6 +23,9 @@ import android.widget.Toast;
 
 import com.openxc.VehicleManager;
 import com.openxc.interfaces.VehicleInterfaceDescriptor;
+import com.openxc.interfaces.ble.BLEException;
+import com.openxc.interfaces.ble.BLEHelper;
+import com.openxc.interfaces.ble.BLEVehicleInterface;
 import com.openxc.interfaces.bluetooth.BluetoothException;
 import com.openxc.interfaces.bluetooth.BluetoothVehicleInterface;
 import com.openxc.interfaces.bluetooth.DeviceManager;
@@ -36,6 +41,7 @@ public class StatusFragment extends Fragment {
     private TextView mViPlatformView;
     private TextView mViDeviceIdView;
     private View mBluetoothConnIV;
+    private View mBleConnIV;
     private View mUsbConnIV;
     private View mNetworkConnIV;
     private View mFileConnIV;
@@ -193,6 +199,7 @@ public class StatusFragment extends Fragment {
         mViPlatformView = (TextView) v.findViewById(R.id.vi_device_platform);
         mViDeviceIdView = (TextView) v.findViewById(R.id.vi_device_id);
         mBluetoothConnIV = v.findViewById(R.id.connection_bluetooth);
+        mBleConnIV = v.findViewById(R.id.connection_ble);
         mUsbConnIV = v.findViewById(R.id.connection_usb);
         mFileConnIV = v.findViewById(R.id.connection_file);
         mNetworkConnIV = v.findViewById(R.id.connection_network);
@@ -218,6 +225,34 @@ public class StatusFragment extends Fragment {
                                     getString(R.string.bluetooth_mac_automatic_option));
                             editor.commit();
                         } catch(BluetoothException e) {
+                            Toast.makeText(getActivity(),
+                                    "Bluetooth is disabled, can't search for devices",
+                                    Toast.LENGTH_LONG).show();
+                        } catch(VehicleServiceException e) {
+                            Log.e(TAG, "Unable to enable Bluetooth vehicle interface", e);
+                        }
+                    }
+                });
+        v.findViewById(R.id.start_ble_search_btn).setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        try {
+                            BLEHelper bleHelper = new BLEHelper(getActivity());
+                            bleHelper.scanLeDevice(true);
+                            // Re-adding the interface with a null address triggers
+                            // automatic mode 1 time
+                            mVehicleManager.setVehicleInterface(
+                                    BLEVehicleInterface.class, null);
+
+                            // clears the existing explicitly set Bluetooth device.
+                            SharedPreferences.Editor editor =
+                                    PreferenceManager.getDefaultSharedPreferences(
+                                            getActivity()).edit();
+                            editor.putString(getString(R.string.bluetooth_mac_key),
+                                    getString(R.string.bluetooth_mac_automatic_option));
+                            editor.commit();
+                        } catch(BLEException e) {
                             Toast.makeText(getActivity(),
                                     "Bluetooth is disabled, can't search for devices",
                                     Toast.LENGTH_LONG).show();
