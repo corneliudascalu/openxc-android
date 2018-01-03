@@ -13,6 +13,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import com.openxc.interfaces.ble.BLEVehicleInterface;
 import com.openxc.interfaces.bluetooth.BluetoothException;
 import com.openxc.interfaces.bluetooth.BluetoothVehicleInterface;
 import com.openxc.interfaces.bluetooth.DeviceManager;
@@ -122,7 +123,7 @@ public class BluetoothPreferenceManager extends VehiclePreferenceManager {
 
             try {
                 getVehicleManager().setVehicleInterface(
-                        BluetoothVehicleInterface.class, deviceAddress);
+                        BLEVehicleInterface.class, deviceAddress);
             } catch(VehicleServiceException e) {
                 Log.e(TAG, "Unable to start Bluetooth interface", e);
             }

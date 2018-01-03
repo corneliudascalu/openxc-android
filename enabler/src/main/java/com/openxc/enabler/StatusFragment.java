@@ -21,6 +21,7 @@ import android.widget.Toast;
 
 import com.openxc.VehicleManager;
 import com.openxc.interfaces.VehicleInterfaceDescriptor;
+import com.openxc.interfaces.ble.BLEVehicleInterface;
 import com.openxc.interfaces.bluetooth.BluetoothException;
 import com.openxc.interfaces.bluetooth.BluetoothVehicleInterface;
 import com.openxc.interfaces.bluetooth.DeviceManager;
@@ -208,7 +209,7 @@ public class StatusFragment extends Fragment {
                             // Re-adding the interface with a null address triggers
                             // automatic mode 1 time
                             mVehicleManager.setVehicleInterface(
-                                    BluetoothVehicleInterface.class, null);
+                                    BLEVehicleInterface.class, null);
 
                             // clears the existing explicitly set Bluetooth device.
                             SharedPreferences.Editor editor =
