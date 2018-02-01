@@ -8,6 +8,7 @@ import android.view.View;
 
 import com.openxc.VehicleManager;
 import com.openxc.interfaces.VehicleInterfaceDescriptor;
+import com.openxc.interfaces.ble.BLEVehicleInterface;
 import com.openxc.interfaces.bluetooth.BluetoothVehicleInterface;
 import com.openxc.interfaces.network.NetworkVehicleInterface;
 import com.openxc.interfaces.usb.UsbVehicleInterface;
@@ -19,19 +20,21 @@ public class PipelineStatusUpdateTask extends TimerTask {
     private Activity mActivity;
     private View mNetworkConnView;
     private View mBluetoothConnView;
+    private View mBleConnView;
     private View mUsbConnView;
     private View mFileConnView;
     private View mNoneConnView;
 
     public PipelineStatusUpdateTask(VehicleManager vehicleService,
             Activity activity, View fileConnView,
-            View networkConnView, View bluetoothConnView, View usbConnView,
+            View networkConnView, View bluetoothConnView, View bleConnView, View usbConnView,
             View noneConnView) {
         mVehicleManager = vehicleService;
         mActivity = activity;
         mFileConnView = fileConnView;
         mNetworkConnView = networkConnView;
         mBluetoothConnView = bluetoothConnView;
+        mBleConnView = bleConnView;
         mUsbConnView = usbConnView;
         mNoneConnView = noneConnView;
     }
@@ -72,6 +75,9 @@ public class PipelineStatusUpdateTask extends TimerTask {
 
             setVisibility(BluetoothVehicleInterface.class,
                     mBluetoothConnView, viDescriptor);
+
+            setVisibility(BLEVehicleInterface.class, mBleConnView,viDescriptor);
+
             setVisibility(NetworkVehicleInterface.class, mNetworkConnView,
                     viDescriptor);
             setVisibility(UsbVehicleInterface.class, mUsbConnView,

@@ -14,6 +14,7 @@ import android.util.Log;
 import java.util.UUID;
 
 import static com.openxc.interfaces.ble.BLEHelper.STATE_CONNECTED;
+import static com.openxc.interfaces.ble.BLEHelper.STATE_DISCONNECTED;
 
 
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -54,10 +55,10 @@ public class GattCallback extends BluetoothGattCallback {
             Log.i(TAG, "Attempting to start service discovery:" +
                     mBluetoothGatt.discoverServices());
 
-        } /*else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+        } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
             mBLEHelper.setConnectionState(STATE_DISCONNECTED);
             Log.i(TAG, "Disconnected from GATT server.");
-        }*/
+        }
     }
 
 

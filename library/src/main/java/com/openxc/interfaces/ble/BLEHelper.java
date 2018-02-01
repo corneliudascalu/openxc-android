@@ -146,8 +146,6 @@ public class BLEHelper {
         mBluetoothGatt = device.connectGatt(mContext, false, mGattCallback);
         Log.d(TAG, "Trying to create a new connection.");
         mBluetoothDevice = device;//*** should this be set after connected?
-//        mConnectionState = STATE_CONNECTING;
-//        storeLastConnectedDevice(mBluetoothDevice);
         return true;
     }
 
@@ -159,6 +157,7 @@ public class BLEHelper {
      */
     @TargetApi(18)
     public void disconnect() {
+
         if (Build.VERSION.SDK_INT < 18) {
             Log.i(TAG, "BLE not supported on API Version < 18");
             return;
@@ -168,6 +167,8 @@ public class BLEHelper {
             return;
         }
         mBluetoothGatt.disconnect();
+        mConnectionState = STATE_DISCONNECTED;
+
     }
 
     /**
@@ -187,13 +188,6 @@ public class BLEHelper {
         mBluetoothGatt = null;
     }
 
-    /*public boolean writeCharacteristic(int i){
-        if(mBluetoothGatt!=null){
-            BluetoothGattService bluetoothGattService =
-        }else {
-            Log.d(TAG,"BluetoothGATT is null");
-        }
-    }*/
     public BluetoothGatt getBluetoothGatt() {
         return mBluetoothGatt;
     }
@@ -225,29 +219,6 @@ public class BLEHelper {
 
         BLESendData();
         return true;
-        /*Log.d(TAG,"Call received!! : " + new String(bytes));
-        if (mBluetoothGatt != null) {
-            BluetoothGattService openXCService = mBluetoothGatt.getService(UUID.fromString(GattCallback.C5_OPENXC_BLE_SERVICE_UUID));
-            if (openXCService != null) {
-                BluetoothGattCharacteristic characteristic = openXCService.getCharacteristic(UUID.fromString(GattCallback.C5_OPENXC_BLE_CHARACTERISTIC_WRITE_UUID));
-                if(characteristic != null){
-                    *//*String command = "{\"bus\":0,\"bypass\":false,\"command\":\"version\",\"enabled\":false,\"unix_time\":0}";*//*
-                    characteristic.setValue(bytes);
-                    boolean status = mBluetoothGatt.writeCharacteristic(characteristic);
-                    Log.d(TAG,"characteristic is written " + status);
-                    return status;
-                }else{
-                    Log.d(TAG,"characteristic is null");
-                    return false;
-                }
-            } else {
-                Log.d(TAG, "OpenXC Service not found!");
-                return false;
-            }
-        } else {
-            Log.d(TAG, "Gatt not found!");
-            return false;
-        }*/
     }
     //TODO : the packet that you are sending must be in UTF-8
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -292,13 +263,11 @@ public class BLEHelper {
                         }
                         characteristic.setValue(sendingPacketUtf8);
                         try {
-                            Log.d(TAG,"Sleeping");
                             Thread.sleep(50);
                         } catch (InterruptedException e) {
                             Log.d(TAG,"Interrupted");
                             e.printStackTrace();
                         }
-                        Log.d(TAG,"Waking");
                         boolean status = mBluetoothGatt.writeCharacteristic(characteristic);
                         if(status) {
                             writeCounter++;

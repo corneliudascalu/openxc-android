@@ -5,14 +5,18 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import android.annotation.TargetApi;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.util.Log;
 
+import com.openxc.VehicleManager;
 import com.openxc.interfaces.ble.BLEVehicleInterface;
 import com.openxc.interfaces.bluetooth.BluetoothException;
 import com.openxc.interfaces.bluetooth.BluetoothVehicleInterface;
@@ -53,11 +57,11 @@ import com.openxcplatform.enabler.R;
  * enabled or the OpenXC service first starts, to avoid draining the battery.
  */
 public class BluetoothPreferenceManager extends VehiclePreferenceManager {
-    private final static String TAG = "BluetoothPreferenceManager";
+    private final static String TAG = "BluetoothPrefManager";
 
     private DeviceManager mBluetoothDeviceManager;
     private HashMap<String, String> mDiscoveredDevices =
-            new HashMap<String, String>();
+            new HashMap<>();
 
     public BluetoothPreferenceManager(Context context) {
         super(context);
@@ -109,6 +113,7 @@ public class BluetoothPreferenceManager extends VehiclePreferenceManager {
         };
     }
 
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private synchronized void setBluetoothStatus(boolean enabled) {
         if(enabled) {
             Log.i(TAG, "Enabling the Bluetooth vehicle interface");
@@ -120,12 +125,27 @@ public class BluetoothPreferenceManager extends VehiclePreferenceManager {
                 Log.d(TAG, "No Bluetooth vehicle interface selected -- " +
                         "starting in automatic mode");
             }
-
-            try {
-                getVehicleManager().setVehicleInterface(
-                        BLEVehicleInterface.class, deviceAddress);
-            } catch(VehicleServiceException e) {
-                Log.e(TAG, "Unable to start Bluetooth interface", e);
+            if(deviceAddress!=null) {
+                BluetoothDevice bluetoothDevice = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(deviceAddress);
+                if(bluetoothDevice.getType()==BluetoothDevice.DEVICE_TYPE_CLASSIC){
+                    try {
+                        getVehicleManager().setVehicleInterface(null);
+                        Log.d(TAG,"BluetoothVehicleInterface Started!!!");
+                        getVehicleManager().setVehicleInterface(
+                                BluetoothVehicleInterface.class, deviceAddress);
+                    } catch(VehicleServiceException e) {
+                        Log.e(TAG, "Unable to start Bluetooth interface", e);
+                    }
+                } else {
+                    try {
+                        getVehicleManager().setVehicleInterface(null,null);
+                        Log.d(TAG,"BLEVehicleInterface Started!!!");
+                        getVehicleManager().setVehicleInterface(
+                                BLEVehicleInterface.class, deviceAddress);
+                    } catch(VehicleServiceException e) {
+                        Log.e(TAG, "Unable to start Bluetooth interface", e);
+                    }
+                }
             }
         }
     }

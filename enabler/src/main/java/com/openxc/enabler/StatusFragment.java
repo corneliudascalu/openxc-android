@@ -21,6 +21,8 @@ import android.widget.Toast;
 
 import com.openxc.VehicleManager;
 import com.openxc.interfaces.VehicleInterfaceDescriptor;
+import com.openxc.interfaces.ble.BLEException;
+import com.openxc.interfaces.ble.BLEHelper;
 import com.openxc.interfaces.ble.BLEVehicleInterface;
 import com.openxc.interfaces.bluetooth.BluetoothException;
 import com.openxc.interfaces.bluetooth.BluetoothVehicleInterface;
@@ -37,6 +39,7 @@ public class StatusFragment extends Fragment {
     private TextView mViPlatformView;
     private TextView mViDeviceIdView;
     private View mBluetoothConnIV;
+    private View mBleConnIV;
     private View mUsbConnIV;
     private View mNetworkConnIV;
     private View mFileConnIV;
@@ -98,10 +101,10 @@ public class StatusFragment extends Fragment {
 
     private ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className,
-                IBinder service) {
+                                       IBinder service) {
             Log.i(TAG, "Bound to VehicleManager");
             mVehicleManager = ((VehicleManager.VehicleBinder)service
-                    ).getService();
+            ).getService();
 
             try {
                 mVehicleManager.addOnVehicleInterfaceConnectedListener(
@@ -136,7 +139,6 @@ public class StatusFragment extends Fragment {
                     } catch(VehicleServiceException e) {
                         Log.w(TAG, "Unable to connect to VehicleService");
                     }
-
                 }
             }).start();
 
@@ -144,7 +146,7 @@ public class StatusFragment extends Fragment {
                     getActivity(), mMessageCountView);
             mUpdatePipelineStatusTask = new PipelineStatusUpdateTask(
                     mVehicleManager, getActivity(),
-                    mFileConnIV, mNetworkConnIV, mBluetoothConnIV, mUsbConnIV,
+                    mFileConnIV, mNetworkConnIV, mBluetoothConnIV, mBleConnIV, mUsbConnIV,
                     mNoneConnView);
             mTimer = new Timer();
             mTimer.schedule(mUpdateMessageCountTask, 100, 1000);
@@ -185,7 +187,7 @@ public class StatusFragment extends Fragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+                             Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.status_fragment, container, false);
 
         mServiceNotRunningWarningView = v.findViewById(R.id.service_not_running_bar);
@@ -194,6 +196,7 @@ public class StatusFragment extends Fragment {
         mViPlatformView = (TextView) v.findViewById(R.id.vi_device_platform);
         mViDeviceIdView = (TextView) v.findViewById(R.id.vi_device_id);
         mBluetoothConnIV = v.findViewById(R.id.connection_bluetooth);
+        mBleConnIV = v.findViewById(R.id.connection_ble);
         mUsbConnIV = v.findViewById(R.id.connection_usb);
         mFileConnIV = v.findViewById(R.id.connection_file);
         mNetworkConnIV = v.findViewById(R.id.connection_network);
@@ -209,12 +212,12 @@ public class StatusFragment extends Fragment {
                             // Re-adding the interface with a null address triggers
                             // automatic mode 1 time
                             mVehicleManager.setVehicleInterface(
-                                    BLEVehicleInterface.class, null);
+                                    BluetoothVehicleInterface.class, null);
 
                             // clears the existing explicitly set Bluetooth device.
                             SharedPreferences.Editor editor =
-                                PreferenceManager.getDefaultSharedPreferences(
-                                        getActivity()).edit();
+                                    PreferenceManager.getDefaultSharedPreferences(
+                                            getActivity()).edit();
                             editor.putString(getString(R.string.bluetooth_mac_key),
                                     getString(R.string.bluetooth_mac_automatic_option));
                             editor.commit();
@@ -227,7 +230,6 @@ public class StatusFragment extends Fragment {
                         }
                     }
                 });
-
         getActivity().runOnUiThread(new Runnable() {
             public void run() {
                 mServiceNotRunningWarningView.setVisibility(View.VISIBLE);

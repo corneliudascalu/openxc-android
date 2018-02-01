@@ -13,9 +13,7 @@ import com.openxc.sources.DataSourceResourceException;
 import com.openxc.sources.SourceCallback;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 
 /**
  * Created by AKUMA128 on 12/25/2017.
@@ -89,7 +87,7 @@ public class BLEVehicleInterface extends BytestreamDataSource implements Vehicle
     @Override
     protected int read(byte[] bytes) throws IOException {
         //mConnectionLock.readLock().lock();
-        int bytesRead = -1;
+        int bytesRead = 0;
         //TODO Have to do something about the error on read - returned -1 it can cause disconnection
         try {
             if (isConnected() && BLEInputStream.getInstance().doesBufferHasRemaining()) {
@@ -116,6 +114,10 @@ public class BLEVehicleInterface extends BytestreamDataSource implements Vehicle
 
     @Override
     protected void disconnect() {
+        if(mIsConnected){
+            Log.d(TAG, "Disconnecting BLE");
+            mBleHelper.disconnect();
+        }
     }
 
     @Override
