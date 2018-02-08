@@ -8,14 +8,21 @@ import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.openxc.interfaces.bluetooth.BluetoothVehicleInterface;
+import com.openxc.util.SupportSettingsUtils;
+
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.BufferOverflowException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -25,22 +32,22 @@ import java.util.UUID;
 public class BLEHelper {
     private final static String TAG = BLEHelper.class.getSimpleName();
     public static final int MAX_WRITE_BUFFER_CAPACITY = 1024;
+    private static final String KNOWN_BLE_DEVICE_PREFERENCES = "known_ble_devices";
+    public static final String LAST_CONNECTED_BLE_DEVICE_PREF_KEY = "last_connected_ble_device";
+    public static final String KNOWN_BLUETOOTH_DEVICE_PREF_KEY = "known_bluetooth_devices";
 
     private Context mContext;
     private Handler mHandler;
     private BluetoothDevice mBluetoothDevice;
-    //TODO : Why do you wanna save it ALok?
-    //private String mBluetoothDeviceAddress;
     private BluetoothGatt mBluetoothGatt;
     private BluetoothGattCallback mGattCallback;
 
-    private int mConnectionState = STATE_CONNECTED;
+    private int mConnectionState = STATE_DISCONNECTED;
 
     private BluetoothAdapter mBluetoothAdapter;
     public static final int STATE_DISCONNECTED = 0;
     public static final int STATE_CONNECTING = 1;
     public static final int STATE_CONNECTED = 2;
-    private int connectionState;
     private byte[] writeArray = new byte[MAX_WRITE_BUFFER_CAPACITY];
     private static int writeCounter = 0;
     int queueEnd = 0;
@@ -77,7 +84,6 @@ public class BLEHelper {
             if (!mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
                 return null;
             }
-
             // work around an Android bug, requires that this is called before
             // getting the default adapter
             if (Looper.myLooper() == null) {
@@ -90,7 +96,7 @@ public class BLEHelper {
     }
 
     public boolean connect(String address) throws BLEException {
-        return connect(getDefaultAdapter().getRemoteDevice(address));
+         return connect(getDefaultAdapter().getRemoteDevice(address));
     }
 
     /**
@@ -104,6 +110,7 @@ public class BLEHelper {
      */
     @TargetApi(18)
     public boolean connect(BluetoothDevice device) throws BLEException {
+        Log.d(TAG, "Connect called!!!");
         if (Build.VERSION.SDK_INT < 18) {
             Log.i(TAG, "BLE not supported on API Version < 18");
             throw new BLEException("BLE not supported on API Version < 18");
@@ -117,10 +124,6 @@ public class BLEHelper {
             Log.w(TAG, "BluetoothAdapter not initialized");
             throw new BLEException("BluetoothAdapter not initialized");
         }
-
-      /*  if ( mBluetoothDeviceAddress != null) {
-            address = mBluetoothDeviceAddress;
-        }*/
 
         // Previously connected device.  Try to reconnect.
         if (mBluetoothDevice != null && device.equals(mBluetoothDevice)
@@ -143,7 +146,7 @@ public class BLEHelper {
             Log.i(TAG, "GattCallback not instantiated");
             throw new BLEException("GattCallback not instantiated");
         }
-        mBluetoothGatt = device.connectGatt(mContext, false, mGattCallback);
+        mBluetoothGatt = device.connectGatt(mContext, true, mGattCallback);
         Log.d(TAG, "Trying to create a new connection.");
         mBluetoothDevice = device;//*** should this be set after connected?
         return true;
@@ -196,20 +199,19 @@ public class BLEHelper {
         mGattCallback = bluetoothGattCallback;
     }
 
-    public void setConnectionState(int connectionState) {
-        this.connectionState = connectionState;
+    public void setConnectionState(int mConnectionState) {
+        this.mConnectionState = mConnectionState;
     }
 
     public int getConnectionState() {
-        return connectionState;
+        return mConnectionState;
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     public boolean writeCharacteristic(byte[] bytes) {
         try {
-            Log.d(TAG, "Writing characters" + new String(bytes));
-            for(int i = 0; i<bytes.length ; i++){
-                writeArray[queueEnd++] =  bytes[i];
+            for (int i = 0; i < bytes.length; i++) {
+                writeArray[queueEnd++] = bytes[i];
             }
         } catch (BufferOverflowException e) {
             //TODO : How to handle???
@@ -220,17 +222,13 @@ public class BLEHelper {
         BLESendData();
         return true;
     }
+
     //TODO : the packet that you are sending must be in UTF-8
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private void BLESendData() {
-        if (queueEnd <=0) {
+        if (queueEnd <= 0) {
             return;
         }
-        //Removing this check for testing
-        /*if(writeCounter>0){
-            Log.d(TAG,"Write Counter status :" + writeCounter);
-            return;
-        }*/
         if (mBluetoothGatt != null) {
             BluetoothGattService openXCService = mBluetoothGatt.getService(UUID.fromString(GattCallback.C5_OPENXC_BLE_SERVICE_UUID));
             if (openXCService != null) {
@@ -252,7 +250,6 @@ public class BLEHelper {
                             queueEnd = 0;
                         }
                         String sendingPacketString = new String (sendingPacket);
-                        Log.d(TAG,"ALPHA Sending XXX:::::::::>> " + sendingPacketString);
                         byte[] sendingPacketUtf8 = new byte[0];
                         try {
                             sendingPacketUtf8 = sendingPacketString.getBytes("UTF-8");
@@ -272,7 +269,6 @@ public class BLEHelper {
                         if(status) {
                             writeCounter++;
                         }
-                        Log.d(TAG, "characteristic is written XXX ? :" + status);
                     }
                 } else {
                     Log.d(TAG, "characteristic is null");
@@ -291,5 +287,78 @@ public class BLEHelper {
 
     public static void setWriteCounter(int writeCounter) {
         BLEHelper.writeCounter = writeCounter;
+    }
+
+    public void storeLastConnectedDevice(BluetoothDevice device) {
+        SharedPreferences.Editor editor =
+                mContext.getSharedPreferences(
+                        KNOWN_BLE_DEVICE_PREFERENCES,
+                        Context.MODE_MULTI_PROCESS).edit();
+        editor.putString(LAST_CONNECTED_BLE_DEVICE_PREF_KEY,
+                device.getAddress());
+        editor.apply();
+        Log.d(TAG, "Stored last connected device: " + device.getAddress());
+    }
+
+    public BluetoothDevice getLastConnectedDevice() {
+        SharedPreferences preferences =
+                mContext.getSharedPreferences(KNOWN_BLE_DEVICE_PREFERENCES,
+                        Context.MODE_MULTI_PROCESS);
+        String lastConnectedDeviceAddress = preferences.getString(
+                LAST_CONNECTED_BLE_DEVICE_PREF_KEY, null);
+        BluetoothDevice lastConnectedDevice = null;
+        if (lastConnectedDeviceAddress != null) {
+            lastConnectedDevice = getDefaultAdapter().getRemoteDevice(lastConnectedDeviceAddress);
+        }
+        return lastConnectedDevice;
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
+    public Set<BluetoothDevice> getCandidateDevices() {
+        Set<BluetoothDevice> candidates = new HashSet<>();
+
+        for (BluetoothDevice device : getPairedDevices()) {
+            if (device.getName().startsWith(
+                    BluetoothVehicleInterface.DEVICE_NAME_PREFIX) && device.getType() == BluetoothDevice.DEVICE_TYPE_LE) {
+                candidates.add(device);
+            }
+        }
+
+        SharedPreferences preferences =
+                mContext.getSharedPreferences(KNOWN_BLE_DEVICE_PREFERENCES,
+                        Context.MODE_MULTI_PROCESS);
+        Set<String> detectedDevices = SupportSettingsUtils.getStringSet(
+                preferences, KNOWN_BLUETOOTH_DEVICE_PREF_KEY,
+                new HashSet<String>());
+        for (String address : detectedDevices) {
+            if (BluetoothAdapter.checkBluetoothAddress(address)) {
+                candidates.add(getDefaultAdapter().getRemoteDevice(address));
+            }
+        }
+
+        for (BluetoothDevice candidate : candidates) {
+            Log.d(TAG, "Found previously discovered or paired OpenXC BT VI "
+                    + candidate.getAddress());
+        }
+        return candidates;
+    }
+
+    public Set<BluetoothDevice> getPairedDevices() {
+        Set<BluetoothDevice> devices = new HashSet<>();
+        if (getDefaultAdapter() != null && getDefaultAdapter().isEnabled()) {
+            devices = getDefaultAdapter().getBondedDevices();
+            Log.d(TAG, "Bonded devices : " + devices);
+        }
+        return devices;
+    }
+
+    public void stop() {
+        if(getDefaultAdapter() != null) {
+            getDefaultAdapter().cancelDiscovery();
+        }
+    }
+
+    public boolean isConnected(){
+        return mConnectionState == STATE_CONNECTED;
     }
 }

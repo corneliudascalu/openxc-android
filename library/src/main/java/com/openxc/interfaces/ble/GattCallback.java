@@ -44,17 +44,14 @@ public class GattCallback extends BluetoothGattCallback {
     public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
 
         if (newState == BluetoothProfile.STATE_CONNECTED) {
-
             mBLEHelper.setConnectionState(STATE_CONNECTED);
             Log.i(TAG, "Connected to GATT server.");
-
             //Stop scanning for BLE devices as we are connected
             //mBLEHelper.scanLeDevice(false);
             mBluetoothGatt = mBLEHelper.getBluetoothGatt();
             // Attempts to discover services after successful connection.
             Log.i(TAG, "Attempting to start service discovery:" +
                     mBluetoothGatt.discoverServices());
-
         } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
             mBLEHelper.setConnectionState(STATE_DISCONNECTED);
             Log.i(TAG, "Disconnected from GATT server.");
@@ -79,9 +76,7 @@ public class GattCallback extends BluetoothGattCallback {
     public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
        if(status == BluetoothGatt.GATT_SUCCESS){
            int counter = BLEHelper.getWriteCounter();
-           Log.d(TAG,"Write Counter ::" + counter);
            BLEHelper.setWriteCounter(counter-1);
-           Log.d(TAG,"Write Success");
        } else {
            Log.d(TAG,"Write failure");
        }
@@ -124,12 +119,11 @@ public class GattCallback extends BluetoothGattCallback {
     public void readChangedCharacteristic(BluetoothGattCharacteristic characteristic) {
         byte[] data;
         data = characteristic.getValue(); // *** this is going to get overwritten by next call, so make a queue
-        if (data != null && data.length > 0) {
+        if (data != null && data.length > 0 && (mBLEHelper.isConnected())) {
             final StringBuilder stringBuilder = new StringBuilder(data.length);
             for (byte byteChar : data)
                 stringBuilder.append(String.format("%02X ", byteChar));
             BLEInputStream.getInstance().putDataInBuffer(data);
-            // parseNextMessage();
         }
     }
 }
