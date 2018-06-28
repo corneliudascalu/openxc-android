@@ -23,8 +23,11 @@ public class TransmissionGearPosition
         SIXTH,
         SEVENTH,
         EIGHTH,
+        PARK,
+        COASTING,
         NEUTRAL,
-        REVERSE
+        REVERSE,
+        UNKNOWN
     }
 
     public TransmissionGearPosition(State<GearPosition> value) {
