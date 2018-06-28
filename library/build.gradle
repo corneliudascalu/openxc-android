@@ -1,5 +1,7 @@
 apply plugin: 'com.android.library'
 apply plugin: 'com.jfrog.bintray'
+apply from: 'versioning.gradle'
+apply from: 'maven-release.gradle'
 
 group = "com.openxcplatform"
 version = rootProject.ext.versionName

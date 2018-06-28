@@ -1,0 +1,107 @@
+apply plugin: "maven-publish"
+
+def nexusUsername = System.getenv("NEXUS_USERNAME")
+def nexusPassword = System.getenv("NEXUS_PASSWORD")
+
+publishing {
+    repositories {
+        maven {
+            url "https://artifacts-mobile.skobbler.com/repository/Android-Maven/"
+            credentials {
+                // if the env variables are not set, get user and password from local gradle.properties
+                // fallback to empty string
+                def fallbackUsername = ""
+                if (project.hasProperty("localNexusUsername")) {
+                    fallbackUsername = localNexusUsername
+                }
+                def fallbackPassword = ""
+                if (project.hasProperty("localNexusPassword")) {
+                    fallbackPassword = localNexusPassword
+                }
+                // set maven credentials
+                username nexusUsername ?: fallbackUsername
+                password nexusPassword ?: fallbackPassword
+            }
+        }
+    }
+
+    publications {
+        /**
+         * Extract Javadoc from the public API classes
+         */
+        task generateDocumentation(type: Javadoc) {
+            source = android.sourceSets.main.java.srcDirs
+            classpath = files("$buildDir/classes/")
+            include "com/telenav/datacollectormodule/datacollectorstarter/DataCollectorManager.java"
+            include "com/telenav/datacollectormodule/config/**"
+            include "com/telenav/datacollectormodule/datatype/**"
+            failOnError false
+        }
+
+        /**
+         * Package the Javadocs in a JAR
+         */
+        task packageDocumentationInJar(type: Jar, dependsOn: generateDocumentation) {
+            classifier = 'javadoc'
+            version getReleaseVersion()
+            from generateDocumentation.destinationDir
+        }
+
+        /**
+         * Package the public API source code in a JAR
+         */
+        task generateSourceCodeJar(type: Jar) {
+            classifier = 'sources'
+            include "com/telenav/datacollectormodule/datacollectorstarter/DataCollectorManager.java"
+            include "com/telenav/datacollectormodule/config/**"
+            include "com/telenav/datacollectormodule/datatype/**"
+            version getReleaseVersion()
+            from android.sourceSets.main.java.srcDirs
+        }
+
+        /**
+         * Prepare the library AAR for Maven publication
+         */
+        mavenUpload(MavenPublication) {
+            groupId = "com.telenav.openxclibrary"
+            artifactId = "data-collector-openxc"
+            // this will fail if getReleaseVersion() returns empty
+            version = getReleaseVersion()
+
+            // the 3 artifacts to be published in the repository
+            artifact("$buildDir/outputs/aar/library-release.aar") {
+                builtBy assembleRelease
+            }
+            artifact generateSourceCodeJar
+            artifact packageDocumentationInJar
+
+            pom.withXml {
+                def dependencies = asNode().appendNode('dependencies')
+                // add dependencies to the POM file
+                configurations.implementation.getDependencies().each { Dependency dep ->
+                    if (dep.group != null && dep.version != null && dep.name != null && dep.name != "unspecified") {
+                        def dependencyNode = dependencies.appendNode("dependency")
+                        dependencyNode.appendNode('groupId', dep.group)
+                        dependencyNode.appendNode('artifactId', dep.name)
+                        dependencyNode.appendNode('version', dep.version)
+
+                        if (!dep.transitive) {
+                            // If this dependency is transitive, we should force exclude all its dependencies them from the POM
+                            def exclusionNode = dependencyNode.appendNode('exclusions').appendNode('exclusion')
+                            exclusionNode.appendNode('groupId', '*')
+                            exclusionNode.appendNode('artifactId', '*')
+                        } else if (!dep.properties.excludeRules.empty) {
+                            // Otherwise add specified exclude rules
+                            def exclusionsNode = dependencyNode.appendNode('exclusions')
+                            dep.properties.excludeRules.each { ExcludeRule rule ->
+                                def exclusionNode = exclusionsNode.appendNode('exclusion')
+                                exclusionNode.appendNode('groupId', rule.group ?: '*')
+                                exclusionNode.appendNode('artifactId', rule.module ?: '*')
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

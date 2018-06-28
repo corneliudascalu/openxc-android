@@ -1,0 +1,37 @@
+/**
+ * Return the number of commits on the current branch.
+ * As long as the releases are done from the same branch, this number
+ * will be ever increasing.
+ */
+ext.getCommitCount = {
+    def cmd = "git rev-list --count HEAD"
+    def count = cmd.execute()
+    return Integer.valueOf(count.text.trim())
+}
+
+/**
+ * Returns the result of the 'git describe' command in the form
+ * 1.2.3-99-aaaaaa which is
+ * <most-recent-tag>.<commits-since-tag>-<commit-hash>
+ * if there are uncommitted changes, the '-dirty' marker will be appended
+ */
+ext.getBuildVersion = {
+    def cmd = "git describe --tags --dirty"
+    def version = cmd.execute()
+    return version.text.trim()
+}
+
+/**
+ * Return the git tag only if you are currently on it.
+ * If you are on an untagged commit, or if there are uncommitted changes, it returns empty.
+ *
+ * This is to make sure we release only from a git tag.
+ */
+ext.getReleaseVersion = {
+    def cmd = "git describe --tags --exact-match --dirty"
+    def version = cmd.execute().text.trim()
+    if (version.endsWith("dirty")) {
+        version = ""
+    }
+    return version
+}
