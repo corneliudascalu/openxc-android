@@ -355,7 +355,7 @@ public class VehicleService extends Service implements DataPipeline.Operator {
     @Override
     public synchronized void onPipelineActivated() {
         mWakeLocker.acquireWakeLock();
-        moveToForeground();
+        //moveToForeground();
         if(mVehicleInterface != null && mVehicleInterface.isConnected()) {
             VehicleInterfaceDescriptor descriptor =
                         new VehicleInterfaceDescriptor(mVehicleInterface);
@@ -379,7 +379,7 @@ public class VehicleService extends Service implements DataPipeline.Operator {
     public void onPipelineDeactivated() {
         if(!mUserPipelineActive) {
             mWakeLocker.releaseWakeLock();
-            removeFromForeground();
+            //removeFromForeground();
 
             synchronized(this) {
                 if(mVehicleInterface == null || !mVehicleInterface.isConnected()) {

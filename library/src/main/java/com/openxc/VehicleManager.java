@@ -178,7 +178,7 @@ public class VehicleManager extends Service implements DataPipeline.Operator {
         Log.i(TAG, "Waiting for the VehicleService to bind to " + this);
         while(mRemoteService == null) {
             try {
-                if(!mRemoteBoundCondition.await(3, TimeUnit.SECONDS)) {
+                if(!mRemoteBoundCondition.await(5, TimeUnit.SECONDS)) {
                     throw new VehicleServiceException(
                             "Not bound to remote service after 3 seconds");
                 }
