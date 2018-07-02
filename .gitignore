@@ -34,7 +34,7 @@ gen/
 /*/local.properties
 /*/out
 /*/*/production
-*.iml
+**.iml
 *.iws
 *.ipr
 *~
